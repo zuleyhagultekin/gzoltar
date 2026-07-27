@@ -16,53 +16,68 @@
  */
 package com.gzoltar.core.listeners;
 
-import org.junit.runner.Description;
-import org.junit.runner.Result;
-import org.junit.runner.notification.Failure;
+//importing the new Launcher libraries
+import org.junit.platform.engine.TestExecutionResult;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestPlan;
+import org.junit.platform.launcher.TestIdentifier;
+import org.junit.platform.engine.support.descriptor.MethodSource;
 
 /**
- * JUnit listener.
+ * JUnit 6 listener.
  */
-public final class JUnitListener extends Listener {
+public final class JUnitListener extends Listener implements TestExecutionListener{
 
+  // called when the TestPlan's execution has started.
   @Override
-  public void testRunStarted(final Description description) {
+  public void testPlanExecutionStarted(final TestPlan testPlan) {
     super.onRunStart();
   }
 
+  // called when the TestPlan's execution has finished.
   @Override
-  public void testRunFinished(final Result result) {
+  public void testPlanExecutionFinished(final TestPlan testPlan) {
     super.onRunFinish();
   }
 
+  // execution of a test starts.
   @Override
-  public void testStarted(final Description description) {
-    super.onTestStart();
+  public void executionStarted(final TestIdentifier testIdentifier) {
+    if(testIdentifier.isTest()){
+      super.onTestStart();
+    }
   }
 
+  // execution of a test finishes.
   @Override
-  public void testFinished(final Description description) {
-    super.onTestFinish(this.getName(description));
+  public void executionFinished(final TestIdentifier testIdentifier,final TestExecutionResult testExecutionResult) {
+    //checking if the test failed.if so, send the result to GZoltar first.
+    if(testIdentifier.isTest()){
+      if(testExecutionResult.getStatus()==TestExecutionResult.Status.FAILED){
+        testExecutionResult.getThrowable().ifPresent(t-> {
+          super.onTestFailure(traceToString(t));
+        });
+      }
+      //notify GZoltar that the test has finished.
+      super.onTestFinish(this.getName(testIdentifier));
+    }
   }
 
+  //called when a test is skipped/ignored.
   @Override
-  public void testFailure(final Failure failure) {
-    super.onTestFailure(failure.getTrace());
+  public void executionSkipped(final TestIdentifier testIdentifier, final String reason) {
+    if(testIdentifier.isTest()){
+      super.onTestSkipped();
+    }
   }
 
-  @Override
-  public void testAssumptionFailure(final Failure failure) {
-    // an assumption failure is not propagated to org.junit.runner.Result
-  }
-
-  @Override
-  public void testIgnored(final Description description) {
-    super.onTestSkipped();
-  }
-
-  private String getName(final Description description) {
-    return description.getClassName() + Listener.TEST_CLASS_NAME_SEPARATOR
-        + description.getMethodName();
+  // helper method to extract the ClassName#MethodName format.
+  private String getName(final TestIdentifier testIdentifier) {
+    if(testIdentifier.getSource().isPresent() && testIdentifier.getSource().get() instanceof MethodSource){
+      MethodSource methodSource = (MethodSource) testIdentifier.getSource().get();
+      return methodSource.getClassName()+TEST_CLASS_NAME_SEPARATOR+ methodSource.getMethodName();
+    }
+    return testIdentifier.getLegacyReportingName();
   }
 
 }
