@@ -50,16 +50,17 @@ public final class JUnitListener extends Listener implements TestExecutionListen
 
   // execution of a test finishes.
   @Override
-  public void executionFinished(final TestIdentifier testIdentifier,final TestExecutionResult testExecutionResult) {
-    //checking if the test failed.if so, send the result to GZoltar first.
-    if(testIdentifier.isTest()){
-      if(testExecutionResult.getStatus()==TestExecutionResult.Status.FAILED){
-        testExecutionResult.getThrowable().ifPresent(t-> {
-          super.onTestFailure(traceToString(t));
-        });
+  public void executionFinished(TestIdentifier testIdentifier, TestExecutionResult testExecutionResult) {
+    if (testIdentifier.isTest()) {
+      if (testExecutionResult.getStatus() == TestExecutionResult.Status.FAILED) {
+        Throwable exception = testExecutionResult.getThrowable().orElse(new RuntimeException("Test failed"));
+        super.onTestFailure(super.traceToString(exception));
+      } else if (testExecutionResult.getStatus() == TestExecutionResult.Status.ABORTED) {
+        super.onTestSkipped();
       }
-      //notify GZoltar that the test has finished.
-      super.onTestFinish(this.getName(testIdentifier));
+      
+      // Send the test name converted to GZoltar format
+      super.onTestFinish(getGZoltarTestName(testIdentifier));
     }
   }
 
@@ -72,12 +73,12 @@ public final class JUnitListener extends Listener implements TestExecutionListen
   }
 
   // helper method to extract the ClassName#MethodName format.
-  private String getName(final TestIdentifier testIdentifier) {
-    if(testIdentifier.getSource().isPresent() && testIdentifier.getSource().get() instanceof MethodSource){
+  private String getGZoltarTestName(TestIdentifier testIdentifier) {
+    if (testIdentifier.getSource().isPresent() && testIdentifier.getSource().get() instanceof MethodSource) {
       MethodSource methodSource = (MethodSource) testIdentifier.getSource().get();
-      return methodSource.getClassName()+TEST_CLASS_NAME_SEPARATOR+ methodSource.getMethodName();
+      return methodSource.getClassName() + TEST_CLASS_NAME_SEPARATOR + methodSource.getMethodName();
     }
+    // Return default name as a fallback if MethodSource is not present
     return testIdentifier.getLegacyReportingName();
   }
-
 }
