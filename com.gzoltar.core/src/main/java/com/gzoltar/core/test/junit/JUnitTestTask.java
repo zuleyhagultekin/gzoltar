@@ -41,11 +41,15 @@ public class JUnitTestTask extends TestTask {
   @Override
   public JUnitTestResult call() throws Exception {
     ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-    Class<?> clazz = this.initTestClass ? Class.forName(this.testMethod.getTestClassName())
-        : Class.forName(this.testMethod.getTestClassName(), false, classLoader);
+    if (this.initTestClass) {
+      Class.forName(this.testMethod.getTestClassName());
+    } else {
+      Class.forName(this.testMethod.getTestClassName(), false, classLoader);
+    }
     // 1. Create modern Launcher request.
     var request = LauncherDiscoveryRequestBuilder.request()
-        .selectors(DiscoverySelectors.selectMethod(clazz, this.testMethod.getTestMethodName()))
+      .selectors(DiscoverySelectors.selectMethod(this.testMethod.getTestClassName(),
+        this.testMethod.getTestMethodName()))
         .build();
     // 2. Create the modern Launcher engine
     Launcher launcher = LauncherFactory.create();
